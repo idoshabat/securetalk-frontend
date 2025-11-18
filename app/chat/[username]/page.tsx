@@ -24,15 +24,34 @@ export default function ChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const ws = useRef<WebSocket | null>(null);
+    const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     if (!user) {
         router.push("/login");
         return null;
     }
 
+
     if (!otherUser || !accessToken) {
         return <div>Loading...</div>;
     }
+
+    useEffect(() => {
+        console.log('otherUser:', otherUser);
+        fetch(`http://127.0.0.1:8000/api/profile/${otherUser}/`, {
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+            },
+        })
+            .then((res) => {
+                if (!res.ok) {
+                    alert(res.status)
+                }
+                return res.json();
+            })
+            
+    }, [otherUser, accessToken, router]);
 
     // Fetch existing messages
     useEffect(() => {
@@ -66,9 +85,7 @@ export default function ChatPage() {
                 const data: Message = JSON.parse(event.data);
 
                 setMessages((prev) => {
-                    // Prevent duplicates from optimistic updates
                     if (data.tempId && prev.some((m) => m.tempId === data.tempId)) return prev;
-
                     return [
                         ...prev,
                         {
@@ -89,6 +106,11 @@ export default function ChatPage() {
             ws.current?.close();
         };
     }, [otherUser, accessToken]);
+
+    // Auto-scroll to bottom whenever messages change
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
     const sendMessage = () => {
         if (!input.trim() || !ws.current) return;
@@ -130,6 +152,7 @@ export default function ChatPage() {
                         </div>
                     );
                 })}
+                <div ref={messagesEndRef} />
             </main>
 
             <footer className="p-4 bg-gray-200 flex items-center gap-2">
