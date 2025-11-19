@@ -9,7 +9,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-linear-to-br from-indigo-50 to-purple-100 px-4">
       {/* Hero Section */}
-      <div className="text-center max-w-2xl">
+      <div className="text-center max-w-2xl mt-12">
         <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6">
           Welcome to <span className="text-indigo-600">SecureTalk</span>
         </h1>

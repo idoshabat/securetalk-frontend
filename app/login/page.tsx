@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import Button from "../Components/Button";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -23,36 +23,61 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
-      <form
-        onSubmit={handleLogin}
-        className="bg-white p-6 rounded shadow-md flex flex-col gap-4 w-80"
-      >
-        <h1 className="text-2xl font-bold text-center">Login</h1>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-linear-to-br from-indigo-50 to-purple-100 px-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 mt-20 max-w-md w-full">
+        <h1 className="text-4xl font-extrabold text-center text-gray-900 mb-6">
+          Welcome Back
+        </h1>
+        <p className="text-center text-gray-600 mb-6">
+          Log in to your <span className="font-semibold text-indigo-600">SecureTalk</span> account
+        </p>
 
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="border p-2 rounded"
-          required
+        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            required
+          />
+
+          <button
+            type="submit"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold p-3 rounded-lg shadow-md transition-all"
+          >
+            Log In
+          </button>
+        </form>
+
+        {message && (
+          <p className="mt-4 text-center text-gray-700">{message}</p>
+        )}
+
+        <div className="mt-6 text-center text-gray-600">
+          Don’t have an account?{" "}
+          <Link href="/signup" className="text-indigo-600 font-semibold hover:underline">
+            Sign Up
+          </Link>
+        </div>
+      </div>
+
+      {/* Optional: subtle illustration */}
+      <div className="mt-10">
+        <img
+          src="/login.svg"
+          alt="Login Illustration"
+          className="w-64 md:w-96 opacity-80"
         />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="border p-2 rounded"
-          required
-        />
-
-        <Button type="submit" className="bg-blue-600 text-white p-2 rounded">
-          Log In
-        </Button>
-      </form>
-
-      {message && <p className="mt-4 text-gray-700">{message}</p>}
+      </div>
     </div>
   );
 }
