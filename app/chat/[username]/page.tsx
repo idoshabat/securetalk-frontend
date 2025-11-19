@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useRouter, useParams } from "next/navigation";
-import { ArrowLeft, Send, UserCircle } from "lucide-react";
 
 interface Message {
     id: number;
@@ -11,6 +10,7 @@ interface Message {
     receiver: string;
     message: string;
     timestamp: string;
+    status?: "sent" | "delivered" | "seen";
     tempId?: number;
 }
 
@@ -24,6 +24,8 @@ export default function ChatPage() {
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
+    const [otherUserOnline, setOtherUserOnline] = useState(false);
+
     const ws = useRef<WebSocket | null>(null);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -36,16 +38,7 @@ export default function ChatPage() {
         return <div>Loading...</div>;
     }
 
-    useEffect(() => {
-        fetch(`http://127.0.0.1:8000/api/profile/${otherUser}/`, {
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`,
-            },
-        });
-    }, [otherUser, accessToken, router]);
-
-    // Load initial chat history
+    // Fetch existing messages
     useEffect(() => {
         fetch(`http://127.0.0.1:8000/api/messages/${otherUser}/`, {
             headers: {
@@ -53,11 +46,15 @@ export default function ChatPage() {
                 Authorization: `Bearer ${accessToken}`,
             },
         })
-            .then((res) => res.json())
-            .then((data) => setMessages(data));
+            .then((res) => {
+                if (!res.ok) throw new Error(`Failed to fetch messages: ${res.status}`);
+                return res.json();
+            })
+            .then((data: Message[]) => setMessages(data))
+            .catch((err) => console.error(err));
     }, [otherUser, accessToken]);
 
-    // WebSocket setup
+    // Initialize WebSocket
     useEffect(() => {
         const protocol = location.protocol === "https:" ? "wss" : "ws";
         const tokenParam = encodeURIComponent(accessToken);
@@ -65,101 +62,158 @@ export default function ChatPage() {
 
         ws.current = new WebSocket(wsUrl);
 
-        ws.current.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+        ws.current.onopen = () => console.log("WebSocket connected");
+        ws.current.onclose = () => {
+            console.log("WebSocket closed");
+            setOtherUserOnline(false);
+        };
 
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: data.id ?? Date.now(),
-                    sender: data.sender,
-                    receiver: data.receiver ?? otherUser,
-                    message: data.message,
-                    timestamp: data.timestamp ?? new Date().toISOString(),
-                },
-            ]);
+        ws.current.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                // Online indicator
+                if (data.type === "user_active") {
+                    setOtherUserOnline(data.username === otherUser && data.active);
+                    return;
+                }
+
+                setMessages((prev) => {
+                    if (data.type === "read_receipt") {
+                        return prev.map((m) =>
+                            m.sender === user && m.receiver === data.reader
+                                ? { ...m, status: "seen" }
+                                : m
+                        );
+                    }
+
+                    const updated = prev.map((m) => {
+                        if (data.id && m.id === data.id) return { ...m, ...data };
+                        if (data.tempId && m.tempId === data.tempId) return { ...m, ...data };
+                        return m;
+                    });
+
+                    const exists = updated.some(
+                        (m) => (data.id && m.id === data.id) || (data.tempId && m.tempId === data.tempId)
+                    );
+                    if (!exists && !data.type) updated.push(data);
+
+                    return updated;
+                });
+            } catch (err) {
+                console.error("Failed to parse WebSocket message:", err);
+            }
         };
 
         return () => ws.current?.close();
-    }, [otherUser, accessToken]);
+    }, [otherUser, accessToken, user]);
 
-    // Scroll to bottom on message updates
+    // Auto-scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
     const sendMessage = () => {
         if (!input.trim() || !ws.current) return;
-        ws.current.send(JSON.stringify({ message: input }));
+
+        const tempId = Date.now();
+
+        setMessages((prev) => [
+            ...prev,
+            {
+                id: tempId,
+                sender: user,
+                receiver: otherUser,
+                message: input,
+                timestamp: new Date().toISOString(),
+                status: "sent",
+                tempId,
+            },
+        ]);
+
+        ws.current.send(JSON.stringify({ message: input, tempId }));
         setInput("");
     };
 
-    return (
-        <div className="flex flex-col h-screen bg-gray-100">
+    // Helper to format date separators
+    const formatDate = (timestamp: string) => {
+        const d = new Date(timestamp);
+        return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+    };
 
-            {/* HEADER */}
-            <header className="bg-blue-600 text-white px-4 py-3 flex items-center shadow-md">
+    let lastDate = "";
+
+    return (
+        <div className="flex flex-col h-screen bg-gray-50">
+            <header className="bg-indigo-600 text-white p-3 shadow flex items-center gap-3">
                 <button
                     onClick={() => router.back()}
-                    className="mr-3 hover:text-gray-200 cursor-pointer"
+                    aria-label="Go back"
+                    className="text-white bg-indigo-500 hover:bg-indigo-400 rounded-full w-10 h-10 flex items-center justify-center text-2xl"
                 >
-                    <ArrowLeft size={24} />
+                    ←
                 </button>
-
-                <UserCircle className="mr-3" size={40} />
-
-                <div>
-                    <p className="text-lg font-semibold">{otherUser}</p>
-                    <p className="text-sm text-blue-200">Online</p>
+                <div className="flex-1 flex items-center justify-center gap-2 font-semibold text-lg">
+                    <span>{otherUser}</span>
+                    {otherUserOnline && <span className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>}
                 </div>
             </header>
 
-            {/* MESSAGES */}
             <main className="flex-1 overflow-y-auto p-4 space-y-3">
-                {messages.map((msg) => {
+                {messages.map((msg, index) => {
                     const isMe = msg.sender === user;
+                    const key = msg.id ?? msg.tempId ?? index;
+
+                    const msgDate = formatDate(msg.timestamp);
+                    const showDate = lastDate !== msgDate;
+                    lastDate = msgDate;
 
                     return (
-                        <div
-                            key={msg.id}
-                            className={`flex w-full ${isMe ? "justify-end" : "justify-start"} animate-fadeIn`}
-                        >
-                            <div
-                                className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-md ${
-                                    isMe
-                                        ? "bg-blue-500 text-white rounded-br-none"
-                                        : "bg-white text-gray-800 rounded-bl-none"
-                                }`}
-                            >
-                                <p>{msg.message}</p>
-                                <p className="text-[10px] opacity-70 text-right mt-1">
-                                    {new Date(msg.timestamp).toLocaleTimeString([], {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    })}
-                                </p>
+                        <div key={key}>
+                            {showDate && (
+                                <div className="text-center text-gray-400 text-sm my-2">
+                                    {msgDate}
+                                </div>
+                            )}
+                            <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                                <div
+                                    className={`max-w-[75%] px-4 py-2 rounded-2xl shadow-sm wrap-break-words ${isMe
+                                        ? "bg-indigo-400 text-white rounded-br-none"
+                                        : "bg-white text-gray-900 rounded-bl-none"
+                                    }`}
+                                >
+                                    <p>{msg.message}</p>
+                                    <div className="flex justify-between items-center mt-1 text-[11px] opacity-80">
+                                        <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                                        {isMe && (
+                                            <span className="ml-2">
+                                                {msg.status === "sent" && "✓"}
+                                                {msg.status === "delivered" && "✓✓"}
+                                                {msg.status === "seen" && <span className="text-blue-700">✓✓</span>}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     );
                 })}
-
                 <div ref={messagesEndRef} />
             </main>
 
-            {/* INPUT BAR */}
-            <footer className="p-3 bg-white shadow-inner flex items-center gap-2 border-t">
+            <footer className="p-3 bg-gray-100 flex items-center gap-3 border-t border-gray-300">
                 <input
-                    className="flex-1 border rounded-full px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="flex-1 border rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Type a message..."
                     onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 />
                 <button
-                    className="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition shadow"
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition"
                     onClick={sendMessage}
                 >
-                    <Send className="cursor-pointer" size={18} />
+                    Send
                 </button>
             </footer>
         </div>
