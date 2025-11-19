@@ -6,17 +6,46 @@ import Button from "../Components/Button";
 export default function SignupPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(""); 
+
+  async function generateKeyPair() {
+    // Generate RSA key pair
+    const keyPair = await window.crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true,
+      ["encrypt", "decrypt"]
+    );
+
+    // Export public key
+    const exportedPublicKey = await window.crypto.subtle.exportKey(
+      "spki",
+      keyPair.publicKey
+    );
+
+    // Convert to base64
+    const publicKeyBase64 = btoa(
+      String.fromCharCode(...new Uint8Array(exportedPublicKey))
+    );
+
+    return publicKeyBase64;
+  }
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setMessage("");
 
     try {
+      const publicKey = await generateKeyPair();
+
       const res = await fetch("http://127.0.0.1:8000/api/signup/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, public_key: publicKey }),
       });
 
       if (!res.ok) throw new Error("Signup failed");

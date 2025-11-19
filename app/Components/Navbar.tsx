@@ -19,8 +19,9 @@ export default function Navbar() {
               <Link href="/profile" className="text-white">
                 Profile
               </Link>
-              <Link href={`/chat/idosh`} className="text-white">
-                Chat with idosh
+
+              <Link href="/findUser" className="text-white">
+                Find User
               </Link>
             </div>
             <button

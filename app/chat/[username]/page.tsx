@@ -141,7 +141,7 @@ export default function ChatPage() {
                                         : "bg-white text-gray-800 rounded-bl-none"
                                 }`}
                             >
-                                <p className="break-words">{msg.message}</p>
+                                <p className="wrap-break-words">{msg.message}</p>
                                 <small className="text-xs text-gray-300 mt-1 block text-right">
                                     {new Date(msg.timestamp).toLocaleTimeString([], {
                                         hour: "2-digit",
