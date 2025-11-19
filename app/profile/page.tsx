@@ -102,7 +102,7 @@ export default function ProfilePage() {
           />
         </div>
 
-        <div>
+        {/* <div>
           <label className="block font-semibold">Email</label>
           <input
             type="email"
@@ -119,7 +119,7 @@ export default function ProfilePage() {
             onChange={(e) => setPublicKey(e.target.value)}
             className="border p-2 rounded w-full h-32"
           />
-        </div>
+        </div> */}
 
         <Button
           type="submit"

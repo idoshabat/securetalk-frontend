@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useRouter, useParams } from "next/navigation";
+import { ArrowLeft, Send, UserCircle } from "lucide-react";
 
 interface Message {
     id: number;
@@ -31,29 +32,20 @@ export default function ChatPage() {
         return null;
     }
 
-
     if (!otherUser || !accessToken) {
         return <div>Loading...</div>;
     }
 
     useEffect(() => {
-        console.log('otherUser:', otherUser);
         fetch(`http://127.0.0.1:8000/api/profile/${otherUser}/`, {
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${accessToken}`,
             },
-        })
-            .then((res) => {
-                if (!res.ok) {
-                    alert(res.status)
-                }
-                return res.json();
-            })
-            
+        });
     }, [otherUser, accessToken, router]);
 
-    // Fetch existing messages
+    // Load initial chat history
     useEffect(() => {
         fetch(`http://127.0.0.1:8000/api/messages/${otherUser}/`, {
             headers: {
@@ -61,15 +53,11 @@ export default function ChatPage() {
                 Authorization: `Bearer ${accessToken}`,
             },
         })
-            .then((res) => {
-                if (!res.ok) throw new Error(`Failed to fetch messages: ${res.status}`);
-                return res.json();
-            })
-            .then((data: Message[]) => setMessages(data))
-            .catch((err) => console.error(err));
+            .then((res) => res.json())
+            .then((data) => setMessages(data));
     }, [otherUser, accessToken]);
 
-    // Initialize WebSocket
+    // WebSocket setup
     useEffect(() => {
         const protocol = location.protocol === "https:" ? "wss" : "ws";
         const tokenParam = encodeURIComponent(accessToken);
@@ -77,97 +65,101 @@ export default function ChatPage() {
 
         ws.current = new WebSocket(wsUrl);
 
-        ws.current.onopen = () => console.log("WebSocket connected");
-        ws.current.onclose = () => console.log("WebSocket closed");
-
         ws.current.onmessage = (event) => {
-            try {
-                const data: Message = JSON.parse(event.data);
+            const data = JSON.parse(event.data);
 
-                setMessages((prev) => {
-                    if (data.tempId && prev.some((m) => m.tempId === data.tempId)) return prev;
-                    return [
-                        ...prev,
-                        {
-                            id: data.id ?? Date.now(),
-                            sender: data.sender,
-                            receiver: data.receiver ?? otherUser,
-                            message: data.message,
-                            timestamp: data.timestamp ?? new Date().toISOString(),
-                        },
-                    ];
-                });
-            } catch (err) {
-                console.error("Failed to parse WebSocket message:", err);
-            }
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: data.id ?? Date.now(),
+                    sender: data.sender,
+                    receiver: data.receiver ?? otherUser,
+                    message: data.message,
+                    timestamp: data.timestamp ?? new Date().toISOString(),
+                },
+            ]);
         };
 
-        return () => {
-            ws.current?.close();
-        };
+        return () => ws.current?.close();
     }, [otherUser, accessToken]);
 
-    // Auto-scroll to bottom whenever messages change
+    // Scroll to bottom on message updates
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
     const sendMessage = () => {
         if (!input.trim() || !ws.current) return;
-
-        const messagePayload = { message: input };
-        ws.current.send(JSON.stringify(messagePayload));
+        ws.current.send(JSON.stringify({ message: input }));
         setInput("");
     };
 
     return (
         <div className="flex flex-col h-screen bg-gray-100">
-            <header className="bg-blue-600 text-white p-4 text-center font-bold text-xl shadow">
-                Chat with {otherUser}
+
+            {/* HEADER */}
+            <header className="bg-blue-600 text-white px-4 py-3 flex items-center shadow-md">
+                <button
+                    onClick={() => router.back()}
+                    className="mr-3 hover:text-gray-200 cursor-pointer"
+                >
+                    <ArrowLeft size={24} />
+                </button>
+
+                <UserCircle className="mr-3" size={40} />
+
+                <div>
+                    <p className="text-lg font-semibold">{otherUser}</p>
+                    <p className="text-sm text-blue-200">Online</p>
+                </div>
             </header>
 
-            <main className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* MESSAGES */}
+            <main className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.map((msg) => {
                     const isMe = msg.sender === user;
+
                     return (
                         <div
                             key={msg.id}
-                            className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+                            className={`flex w-full ${isMe ? "justify-end" : "justify-start"} animate-fadeIn`}
                         >
                             <div
-                                className={`max-w-xs px-4 py-2 rounded-lg shadow ${
+                                className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-md ${
                                     isMe
                                         ? "bg-blue-500 text-white rounded-br-none"
                                         : "bg-white text-gray-800 rounded-bl-none"
                                 }`}
                             >
-                                <p className="wrap-break-words">{msg.message}</p>
-                                <small className="text-xs text-gray-300 mt-1 block text-right">
+                                <p>{msg.message}</p>
+                                <p className="text-[10px] opacity-70 text-right mt-1">
                                     {new Date(msg.timestamp).toLocaleTimeString([], {
                                         hour: "2-digit",
                                         minute: "2-digit",
                                     })}
-                                </small>
+                                </p>
                             </div>
                         </div>
                     );
                 })}
+
                 <div ref={messagesEndRef} />
             </main>
 
-            <footer className="p-4 bg-gray-200 flex items-center gap-2">
+            {/* INPUT BAR */}
+            <footer className="p-3 bg-white shadow-inner flex items-center gap-2 border-t">
                 <input
-                    className="flex-1 border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="flex-1 border rounded-full px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Type a message..."
                     onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 />
                 <button
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                    className="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition shadow"
                     onClick={sendMessage}
                 >
-                    Send
+                    <Send className="cursor-pointer" size={18} />
                 </button>
             </footer>
         </div>

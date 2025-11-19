@@ -19,6 +19,9 @@ export default function Navbar() {
               <Link href="/profile" className="text-white">
                 Profile
               </Link>
+              <Link href="/chat" className="text-white">
+                My Chats
+              </Link>
 
               <Link href="/findUser" className="text-white">
                 Find User
