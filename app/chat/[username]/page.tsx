@@ -20,13 +20,18 @@ export default function ChatPage() {
     const params = useParams();
 
     const otherUserParam = params.username;
-    const otherUser = Array.isArray(otherUserParam) ? otherUserParam[0] : otherUserParam;
+    // FIX: decode %40 -> @
+    const rawOtherUser = Array.isArray(otherUserParam) ? otherUserParam[0] : otherUserParam;
+    const otherUser = rawOtherUser ? decodeURIComponent(rawOtherUser) : undefined;
+
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [otherUserOnline, setOtherUserOnline] = useState(false);
+    const [otherUserTyping, setOtherUserTyping] = useState(false);
 
     const ws = useRef<WebSocket | null>(null);
+    const typingTimeout = useRef<NodeJS.Timeout | null>(null);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     if (!user) {
@@ -63,6 +68,7 @@ export default function ChatPage() {
         ws.current = new WebSocket(wsUrl);
 
         ws.current.onopen = () => console.log("WebSocket connected");
+
         ws.current.onclose = () => {
             console.log("WebSocket closed");
             setOtherUserOnline(false);
@@ -71,6 +77,18 @@ export default function ChatPage() {
         ws.current.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
+                console.log("WebSocket message received:", data);
+
+                // typing indicator
+                if (data.type === "typing") {
+                    console.log(data.username + ' is typing');
+                    console.log(otherUser);
+                    if (data.username === otherUser) {
+                        console.log('typingggggg');
+                        setOtherUserTyping(data.typing);
+                    }
+                    return;
+                }
 
                 // Online indicator
                 if (data.type === "user_active") {
@@ -78,6 +96,7 @@ export default function ChatPage() {
                     return;
                 }
 
+                // Read receipts
                 setMessages((prev) => {
                     if (data.type === "read_receipt") {
                         return prev.map((m) =>
@@ -108,7 +127,7 @@ export default function ChatPage() {
         return () => ws.current?.close();
     }, [otherUser, accessToken, user]);
 
-    // Auto-scroll to bottom
+    // Auto-scroll
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
@@ -132,7 +151,11 @@ export default function ChatPage() {
         ]);
 
         ws.current.send(JSON.stringify({ message: input, tempId }));
+
         setInput("");
+
+        // stop typing event immediately
+        ws.current.send(JSON.stringify({ type: "stop_typing" }));
     };
 
     // Helper to format date separators
@@ -145,6 +168,7 @@ export default function ChatPage() {
 
     return (
         <div className="flex flex-col h-screen bg-gray-50">
+            {/* HEADER */}
             <header className="bg-indigo-600 text-white p-3 shadow flex items-center gap-3">
                 <button
                     onClick={() => router.back()}
@@ -153,12 +177,20 @@ export default function ChatPage() {
                 >
                     ←
                 </button>
-                <div className="flex-1 flex items-center justify-center gap-2 font-semibold text-lg">
-                    <span>{otherUser}</span>
-                    {otherUserOnline && <span className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>}
+
+                <div className="flex-1 flex flex-col items-center">
+                    <div className="flex items-center gap-2 font-semibold text-lg">
+                        <span>{otherUser}</span>
+                        {otherUserOnline && <span className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>}
+                    </div>
+
+                    {otherUserTyping && (
+                        <div className="text-sm text-red-800 animate-pulse">typing...</div>
+                    )}
                 </div>
             </header>
 
+            {/* MESSAGES */}
             <main className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.map((msg, index) => {
                     const isMe = msg.sender === user;
@@ -177,11 +209,12 @@ export default function ChatPage() {
                             )}
                             <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                                 <div
-                                    className={`max-w-[75%] px-4 py-2 rounded-2xl shadow-sm wrap-break-words ${isMe
-                                        ? "bg-indigo-400 text-white rounded-br-none"
-                                        : "bg-white text-gray-900 rounded-bl-none"
-                                    }`}
+                                    className={`max-w-[75%] px-4 py-2 rounded-2xl shadow-sm wrap-break-words bubble-animate ${isMe
+                                            ? "bg-indigo-400 text-white rounded-br-none"
+                                            : "bg-white text-gray-900 rounded-bl-none"
+                                        }`}
                                 >
+
                                     <p>{msg.message}</p>
                                     <div className="flex justify-between items-center mt-1 text-[11px] opacity-80">
                                         <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
@@ -201,11 +234,23 @@ export default function ChatPage() {
                 <div ref={messagesEndRef} />
             </main>
 
+            {/* FOOTER */}
             <footer className="p-3 bg-gray-100 flex items-center gap-3 border-t border-gray-300">
                 <input
                     className="flex-1 border rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={(e) => {
+                        setInput(e.target.value);
+
+                        if (!ws.current) return;
+
+                        ws.current.send(JSON.stringify({ type: "typing" }));
+
+                        if (typingTimeout.current) clearTimeout(typingTimeout.current);
+                        typingTimeout.current = setTimeout(() => {
+                            ws.current?.send(JSON.stringify({ type: "stop_typing" }));
+                        }, 1500);
+                    }}
                     placeholder="Type a message..."
                     onKeyDown={(e) => e.key === "Enter" && sendMessage()}
                 />
