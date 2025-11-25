@@ -1,7 +1,7 @@
 "use client";
 
-import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 
 interface GoogleLoginButtonProps {
   clientId: string;
@@ -16,8 +16,7 @@ declare global {
 export default function GoogleLoginButton({ clientId }: GoogleLoginButtonProps) {
   const { googleLogin } = useAuth();
 
-  // Load the Google script once
-  const loadGoogleScript = () => {
+  useEffect(() => {
     if (!document.getElementById("google-client")) {
       const script = document.createElement("script");
       script.src = "https://accounts.google.com/gsi/client";
@@ -25,41 +24,47 @@ export default function GoogleLoginButton({ clientId }: GoogleLoginButtonProps) 
       script.async = true;
       script.defer = true;
       document.body.appendChild(script);
+
+      script.onload = renderGoogle;
+    } else {
+      renderGoogle();
     }
-  };
 
-  // Trigger Google OAuth popup
-  const handleGoogleLogin = () => {
-    if (!window.google) return;
+    function renderGoogle() {
+      if (!window.google) return;
 
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async (response: any) => {
-        try {
-          await googleLogin(response.credential);
-        } catch (err: any) {
-          console.error(err);
-          alert("Google login failed.");
+      window.google.accounts.id.disableAutoSelect();
+      window.google.accounts.id.setLogLevel("debug");
+
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: any) => {
+          try {
+            await googleLogin(response.credential);
+          } catch (error: any) {
+            console.error(error);
+            alert("Google login failed.");
+          }
+        },
+        ux_mode: "popup",
+      });
+
+      window.google.accounts.id.renderButton(
+        document.getElementById("googleSignIn")!,
+        {
+          theme: "outline",
+          size: "large",
+          width: 300,
         }
-      },
-      ux_mode: "popup",
-    });
-
-    window.google.accounts.id.prompt(); // Opens the popup
-  };
-
-  // Load script on mount
-  useEffect(() => {
-    loadGoogleScript();
-  }, []);
+      );
+    }
+  }, [clientId]);
 
   return (
-    <button
-      onClick={handleGoogleLogin}
-      className="w-full cursor-pointer bg-white text-[#1E1E2F] font-semibold py-3 rounded-xl shadow-lg hover:scale-105 transform transition-all flex items-center justify-center gap-3 border border-gray-200"
-    >
-      <img src="/google-icon.svg" alt="Google" className="w-6 h-6" />
-      Continue with Google
-    </button>
+    <div className="w-full flex justify-center mt-2">
+      <div className="p-1 rounded-xl shadow-lg bg-[#1E1E2F]/20 backdrop-blur-sm">
+        <div id="googleSignIn" style={{ minWidth: 300, minHeight: 50 }}></div>
+      </div>
+    </div>
   );
 }
