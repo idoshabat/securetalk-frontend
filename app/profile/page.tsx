@@ -67,9 +67,9 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
-        <h2 className="text-xl font-bold">Please log in to view your profile</h2>
-        <Button onClick={logout} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded">
+      <div className="flex flex-col items-center justify-center h-screen bg-[#1E1E2F] px-4">
+        <h2 className="text-2xl font-bold text-[#00FFE0]">Please log in to view your profile</h2>
+        <Button onClick={logout} className="mt-4 bg-linear-to-r from-[#00BFA6] to-[#00FFE0] text-[#1E1E2F] px-6 py-3 rounded-xl shadow-lg hover:scale-105 transform transition-all">
           Go to Login
         </Button>
       </div>
@@ -78,58 +78,62 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+      <div className="flex flex-col items-center justify-center h-screen bg-[#1E1E2F] px-4 text-[#00FFE0]">
         <p>Loading profile...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#1E1E2F] px-4">
       <form
         onSubmit={handleSave}
-        className="bg-white p-6 rounded shadow-md flex flex-col gap-4 w-96"
+        className="w-full max-w-md bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-8 flex flex-col gap-6 text-white"
       >
-        <h1 className="text-2xl font-bold text-center">User Profile</h1>
+        <h1 className="text-3xl font-extrabold text-center text-[#00FFE0] mb-4">User Profile</h1>
 
         <div>
-          <label className="block font-semibold">Username</label>
+          <label className="block font-semibold mb-1">Username</label>
           <input
             type="text"
             value={profile.username}
             disabled
-            className="border p-2 rounded w-full bg-gray-200"
+            className="w-full p-3 rounded-xl bg-white/20 placeholder-white/60 text-white focus:outline-none focus:ring-2 focus:ring-[#00BFA6] border border-white/20"
           />
         </div>
 
-        {/* <div>
-          <label className="block font-semibold">Email</label>
+        {/* Uncomment if you want editable email & public key
+        <div>
+          <label className="block font-semibold mb-1">Email</label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="border p-2 rounded w-full"
+            className="w-full p-3 rounded-xl bg-white/20 placeholder-white/60 text-white focus:outline-none focus:ring-2 focus:ring-[#00BFA6] border border-white/20"
           />
         </div>
 
         <div>
-          <label className="block font-semibold">Public Key</label>
+          <label className="block font-semibold mb-1">Public Key</label>
           <textarea
             value={publicKey}
             onChange={(e) => setPublicKey(e.target.value)}
-            className="border p-2 rounded w-full h-32"
+            className="w-full p-3 rounded-xl bg-white/20 placeholder-white/60 text-white focus:outline-none focus:ring-2 focus:ring-[#00BFA6] border border-white/20 h-32 resize-none"
           />
-        </div> */}
+        </div>
+        */}
 
         <Button
           type="submit"
-          className="bg-blue-600 text-white p-2 rounded"
+          className="bg-linear-to-r from-[#00BFA6] to-[#00FFE0] text-[#1E1E2F] font-semibold py-3 rounded-xl shadow-lg hover:scale-105 transform transition-all"
         >
           Save Changes
         </Button>
-      </form>
 
-      {message && <p className="mt-4 text-gray-700">{message}</p>}
+        {message && (
+          <p className="mt-2 text-center text-sm text-[#FFD166]">{message}</p>
+        )}
+      </form>
     </div>
   );
 }
