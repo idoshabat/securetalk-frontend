@@ -29,7 +29,7 @@ export default function Home() {
           {user ? (
             <Link
               href="/chat"
-              className="px-6 py-3 bg-gradient-to-r from-[#00BFA6] to-[#00FFE0] text-[#1E1E2F] font-semibold rounded-xl shadow-lg hover:scale-105 transform transition-all"
+              className="px-6 py-3 bg-linear-to-r from-[#00BFA6] to-[#00FFE0] text-[#1E1E2F] font-semibold rounded-xl shadow-lg hover:scale-105 transform transition-all"
             >
               Go to My Chats
             </Link>
@@ -37,7 +37,7 @@ export default function Home() {
             <>
               <Link
                 href="/login"
-                className="px-6 py-3 bg-gradient-to-r from-[#00BFA6] to-[#00FFE0] text-[#1E1E2F] font-semibold rounded-xl shadow-lg hover:scale-105 transform transition-all"
+                className="px-6 py-3 bg-linear-to-r from-[#00BFA6] to-[#00FFE0] text-[#1E1E2F] font-semibold rounded-xl shadow-lg hover:scale-105 transform transition-all"
               >
                 Login
               </Link>
@@ -75,7 +75,7 @@ export default function Home() {
             key={i}
             className={`bg-[#2E2E3E]/50 backdrop-blur-xl p-6 rounded-2xl shadow-xl border border-white/20 text-center transition hover:scale-105 transform`}
           >
-            <div className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br ${feature.iconColor} shadow-lg flex items-center justify-center text-white text-2xl font-bold`}>
+            <div className={`w-16 h-16 mx-auto mb-4 rounded-full bg-linear-to-br ${feature.iconColor} shadow-lg flex items-center justify-center text-white text-2xl font-bold`}>
               {feature.title.charAt(0)}
             </div>
             <h3 className="text-xl font-bold mb-2 text-white">{feature.title}</h3>

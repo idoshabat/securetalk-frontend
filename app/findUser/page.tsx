@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
+import { apiGet } from "@/app/utils/api";
 
 export default function FindUserPage() {
   const [search, setSearch] = useState("");
@@ -10,7 +11,7 @@ export default function FindUserPage() {
   const [error, setError] = useState("");
   const { accessToken } = useAuth();
 
-  const handleSearch = async (e: React.FormEvent) => {
+  async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setUserFound(null);
     setError("");
@@ -18,26 +19,19 @@ export default function FindUserPage() {
     if (!search.trim()) return;
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/profile/${search}/`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const data = await apiGet(`/api/profile/${search}/`);
 
-      if (res.status === 404) {
-        setError("User not found");
-        return;
-      }
-
-      if (!res.ok) throw new Error("Failed to fetch");
-
-      const data = await res.json();
+      // API success
       setUserFound({ username: data.username });
+
     } catch (err: any) {
-      setError("Error fetching user: " + err.message);
+      if (err.status === 404) {
+        setError("User not found");
+      } else {
+        setError("Error fetching user: " + (err.message || "Unknown error"));
+      }
     }
-  };
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#1E1E2F] p-6">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Button from "../Components/Button";
 import GoogleLoginButton from "../Components/GoogleLoginButton";
+import { apiPost } from "../utils/api";
 
 export default function SignupPage() {
   const [username, setUsername] = useState("");
@@ -37,31 +38,29 @@ export default function SignupPage() {
     try {
       const publicKey = await generateKeyPair();
 
-      const res = await fetch("http://127.0.0.1:8000/api/signup/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, public_key: publicKey }),
+      const data = await apiPost("/api/signup/", {
+        username,
+        password,
+        public_key: publicKey,
       });
 
-      if (!res.ok) {
-        let errorMessage = "Signup failed";
-        try {
-          const errorJson = await res.json();
-          const allMessages = Object.values(errorJson)
-            .flat()
-            .map(String);
-          errorMessage = allMessages.join(" | ");
-        } catch {
-          const errorText = await res.text();
-          errorMessage = errorText || res.statusText;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await res.json();
       setMessage("✅ Signup successful! You can now log in.");
     } catch (err: any) {
-      setMessage("❌ Signup failed: " + err.message);
+      console.error(err);
+
+      let errorMessage = "Signup failed";
+      if (err.message) {
+        try {
+          // Try to parse API errors if available
+          const parsed = JSON.parse(err.message);
+          const allMessages = Object.values(parsed).flat().map(String);
+          errorMessage = allMessages.join(" | ");
+        } catch {
+          errorMessage = err.message;
+        }
+      }
+
+      setMessage("❌ Signup failed: " + errorMessage);
     }
   }
 

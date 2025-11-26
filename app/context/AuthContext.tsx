@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { jwtDecode } from "jwt-decode";
+import { apiPost } from "../utils/api";
 
 interface JwtPayload {
   username?: string;
@@ -26,9 +27,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   accessToken: null,
-  login: async () => { },
-  logout: () => { },
-  googleLogin: async () => { },
+  login: async () => {},
+  logout: () => {},
+  googleLogin: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -36,38 +37,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
-
-  // Auto refresh JWT tokens
-  useEffect(() => {
-    if (!accessToken) return;
-
-    const decoded = jwtDecode<JwtPayload>(accessToken);
-    if (!decoded.exp) return;
-
-    const expiresIn = decoded.exp * 1000 - Date.now() - 60_000;
-
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch("http://127.0.0.1:8000/api/token/refresh/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh: localStorage.getItem("refreshToken") }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          localStorage.setItem("accessToken", data.access);
-          setAccessToken(data.access);
-        } else {
-          logout();
-        }
-      } catch {
-        logout();
-      }
-    }, Math.max(expiresIn, 0));
-
-    return () => clearTimeout(timer);
-  }, [accessToken]);
 
   // Load user from localStorage on app start
   useEffect(() => {
@@ -79,10 +48,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const decoded = jwtDecode<JwtPayload>(token);
         const username = decoded.username ?? decoded.sub ?? savedUsername ?? null;
 
-        if (username) {
-          setUser({ username });
-        }
-
+        if (username) setUser({ username });
         setAccessToken(token);
       } catch {
         setUser(savedUsername ? { username: savedUsername } : null);
@@ -95,20 +61,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsReady(true);
   }, []);
 
+  // Auto refresh JWT tokens
+  useEffect(() => {
+    if (!accessToken) return;
+
+    const decoded = jwtDecode<JwtPayload>(accessToken);
+    if (!decoded.exp) return;
+
+    const expiresIn = decoded.exp * 1000 - Date.now() - 60_000; // 1 min before expiry
+
+    const timer = setTimeout(async () => {
+      try {
+        const data = await apiPost("/api/token/refresh/", {
+          refresh: localStorage.getItem("refreshToken"),
+        });
+
+        localStorage.setItem("accessToken", data.access);
+        setAccessToken(data.access);
+      } catch {
+        logout();
+      }
+    }, Math.max(expiresIn, 0));
+
+    return () => clearTimeout(timer);
+  }, [accessToken]);
+
   // Regular login
   const login = async (username: string, password: string) => {
-    const res = await fetch("http://127.0.0.1:8000/api/login/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.detail || "Login failed");
-    }
-
-    const data = await res.json();
+    const data = await apiPost("/api/login/", { username, password });
 
     localStorage.setItem("accessToken", data.access);
     localStorage.setItem("refreshToken", data.refresh);
@@ -116,24 +96,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     setAccessToken(data.access);
     setUser({ username });
+
     router.push("/");
   };
 
   // Google Login
-  // AuthContext.tsx
-  async function googleLogin(credential: string) {
-    const res = await fetch("http://127.0.0.1:8000/api/google-auth/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credential }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Google login failed");
-    }
-
-    const data = await res.json();
+  const googleLogin = async (credential: string) => {
+    const data = await apiPost("/api/google-auth/", { credential });
 
     localStorage.setItem("accessToken", data.access);
     localStorage.setItem("refreshToken", data.refresh);
@@ -143,8 +112,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser({ username: data.email, email: data.email });
 
     router.push("/");
-  }
-
+  };
 
   const logout = () => {
     localStorage.removeItem("accessToken");
@@ -160,9 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   if (!isReady) return null;
 
   return (
-    <AuthContext.Provider
-      value={{ user, accessToken, login, logout, googleLogin }}
-    >
+    <AuthContext.Provider value={{ user, accessToken, login, logout, googleLogin }}>
       {children}
     </AuthContext.Provider>
   );

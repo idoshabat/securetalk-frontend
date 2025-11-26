@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 import { useRouter, useParams } from "next/navigation";
+import { apiGet } from "@/app/utils/api";
 
 interface Message {
   id: number;
@@ -39,18 +40,20 @@ export default function ChatPage() {
   if (!user || !accessToken) return <div className="p-4 text-white">Loading chat...</div>;
   if (!otherUser) return <div className="p-4 text-white">Loading...</div>;
 
-  // Load old messages
+  // ---------------------------------------
+  // ✅ Load old messages using apiGet()
+  // ---------------------------------------
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/api/messages/${otherUser}/`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data: Message[]) => setMessages(data))
-      .catch((err) => console.error("Failed to load messages:", err));
-  }, [otherUser, accessToken]);
+    async function loadMessages() {
+      try {
+        const data = await apiGet(`/api/messages/${otherUser}/`);
+        setMessages(data);
+      } catch (err) {
+        console.error("Failed to load messages:", err);
+      }
+    }
+    loadMessages();
+  }, [otherUser]);
 
   // WebSocket setup
   useEffect(() => {
@@ -141,7 +144,6 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-[#1E1E2F]">
-      {/* HEADER */}
       <header className="bg-[#2E2E3E]/90 backdrop-blur-md shadow-md flex items-center p-4 gap-4 text-white font-semibold sticky top-0 z-10">
         <button
           onClick={() => router.back()}
@@ -152,7 +154,6 @@ export default function ChatPage() {
         <h1 className="flex-1 text-center text-xl sm:text-2xl">{otherUser}</h1>
       </header>
 
-      {/* MESSAGES */}
       <main className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((m, i) => {
           const isMe = m.sender === user.username;
@@ -161,7 +162,7 @@ export default function ChatPage() {
           lastDate = msgDate;
 
           return (
-            <div key={m.id ?? m.tempId ?? i}>
+            <div key={`${m.id ?? "temp"}-${m.tempId ?? i}`}>
               {showDate && (
                 <div className="text-center text-[#AAAAAA] text-sm my-2 font-medium">{msgDate}</div>
               )}
@@ -189,7 +190,6 @@ export default function ChatPage() {
           );
         })}
 
-        {/* Typing animation */}
         {otherUserTyping && (
           <div className="flex justify-start">
             <div className="px-5 py-3 rounded-3xl bg-[#2E2E3E] shadow flex items-center gap-1 animate-pulse">
@@ -203,7 +203,6 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </main>
 
-      {/* INPUT */}
       <footer className="p-4 bg-[#2E2E3E]/90 backdrop-blur-md flex items-center gap-3 sticky bottom-0 z-10">
         <input
           className="flex-1 px-4 py-3 rounded-2xl bg-[#3A3F5C] placeholder-gray-400 text-white focus:outline-none focus:ring-2 focus:ring-[#00BFA6] transition"

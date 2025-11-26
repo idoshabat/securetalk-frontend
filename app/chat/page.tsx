@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
+import { apiGet } from "@/app/utils/api";
 
 interface ChatItem {
   id: number;
@@ -20,25 +21,16 @@ export default function ChatsPage() {
 
   async function loadChats() {
     try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
-        router.push("/login");
-        return;
-      }
+      // No token passing — apiGet handles it
+      const data = await apiGet("/api/chats/");
 
-      const res = await fetch("http://127.0.0.1:8000/api/chats/", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        router.push("/login");
-        return;
-      }
-
-      const data = await res.json();
       setChats(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error loading chats:", err);
+
+      if (err.message === "Session expired") {
+        router.push("/login");
+      }
     }
   }
 
@@ -54,7 +46,12 @@ export default function ChatsPage() {
 
   function formatTimestamp(ts: string | null) {
     if (!ts) return "";
-    return new Date(ts).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" });
+    return new Date(ts).toLocaleString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      month: "short",
+      day: "numeric",
+    });
   }
 
   return (
@@ -63,7 +60,10 @@ export default function ChatsPage() {
 
       {/* Search bar */}
       <div className="relative w-full max-w-xl mb-6">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+        <Search
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+          size={20}
+        />
         <input
           type="text"
           placeholder="Search for a user..."
